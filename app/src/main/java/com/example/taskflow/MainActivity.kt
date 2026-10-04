@@ -4,6 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModelProvider
 import com.example.taskflow.ui.TaskScreen
 import com.example.taskflow.ui.TaskViewModel
@@ -17,11 +19,12 @@ class MainActivity : ComponentActivity() {
         val app = application as TaskFlowApp
         val viewModel = ViewModelProvider(
             this,
-            TaskViewModel.Factory(app.repository)
+            TaskViewModel.Factory(app.repository, app.preferencesManager)
         )[TaskViewModel::class.java]
 
         setContent {
-            TaskFlowTheme {
+            val uiState by viewModel.uiState.collectAsState()
+            TaskFlowTheme(themeMode = uiState.themeMode) {
                 TaskScreen(viewModel = viewModel)
             }
         }

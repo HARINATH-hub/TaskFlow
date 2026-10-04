@@ -1,7 +1,6 @@
 package com.example.taskflow.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,28 +33,28 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.taskflow.data.local.TaskEntity
-import com.example.taskflow.model.Category
 import com.example.taskflow.model.Priority
+import com.example.taskflow.model.TaskCategory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditTaskSheet(
     sheetState: SheetState,
     editingTask: TaskEntity?,
+    categories: List<TaskCategory>,
     onDismiss: () -> Unit,
-    onSave: (title: String, description: String, category: Category, priority: Priority, dueDate: Long?) -> Unit
+    onSave: (title: String, description: String, category: String, priority: Priority, dueDate: Long?) -> Unit
 ) {
     var title by remember(editingTask) { mutableStateOf(editingTask?.title ?: "") }
     var description by remember(editingTask) { mutableStateOf(editingTask?.description ?: "") }
-    var selectedCategory by remember(editingTask) { mutableStateOf(editingTask?.category ?: Category.WORK) }
+    var selectedCategory by remember(editingTask, categories) {
+        mutableStateOf(editingTask?.category ?: categories.firstOrNull()?.name ?: "WORK")
+    }
     var selectedPriority by remember(editingTask) { mutableStateOf(editingTask?.priority ?: Priority.MEDIUM) }
     var titleError by remember { mutableStateOf(false) }
 
@@ -180,11 +178,11 @@ fun AddEditTaskSheet(
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Category.entries.forEach { category ->
-                    val isSelected = selectedCategory == category
+                categories.forEach { category ->
+                    val isSelected = selectedCategory.equals(category.name, ignoreCase = true)
                     FilterChip(
                         selected = isSelected,
-                        onClick = { selectedCategory = category },
+                        onClick = { selectedCategory = category.name },
                         leadingIcon = {
                             Icon(
                                 imageVector = category.icon(),

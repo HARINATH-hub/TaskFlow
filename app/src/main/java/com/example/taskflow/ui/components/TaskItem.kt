@@ -1,6 +1,5 @@
 package com.example.taskflow.ui.components
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -32,22 +31,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.taskflow.data.local.TaskEntity
+import com.example.taskflow.model.TaskCategory
 
 @Composable
 fun TaskItem(
     task: TaskEntity,
+    categories: List<TaskCategory>,
     onToggleComplete: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val categoryObj = TaskCategory.findByName(categories, task.category)
+
     val cardBackground by animateColorAsState(
         targetValue = if (task.isCompleted) {
             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
@@ -131,22 +133,22 @@ fun TaskItem(
                     Row(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .background(task.category.color.copy(alpha = 0.15f))
+                            .background(categoryObj.color.copy(alpha = 0.15f))
                             .padding(horizontal = 8.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = task.category.icon(),
-                            contentDescription = task.category.displayName,
+                            imageVector = categoryObj.icon(),
+                            contentDescription = categoryObj.displayName,
                             modifier = Modifier.size(12.dp),
-                            tint = task.category.color
+                            tint = categoryObj.color
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = task.category.displayName,
+                            text = categoryObj.displayName,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
-                            color = task.category.color
+                            color = categoryObj.color
                         )
                     }
 

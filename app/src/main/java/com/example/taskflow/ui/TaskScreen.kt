@@ -5,6 +5,8 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,11 +18,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Redo
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
@@ -31,22 +36,32 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.taskflow.ui.components.AddEditTaskSheet
 import com.example.taskflow.ui.components.EmptyState
 import com.example.taskflow.ui.components.FilterBar
+import com.example.taskflow.ui.components.ManageCategoriesSheet
 import com.example.taskflow.ui.components.StatsCard
 import com.example.taskflow.ui.components.TaskItem
+import com.example.taskflow.ui.screens.ProfileScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,7 +70,59 @@ fun TaskScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val addEditSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val manageCatsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Listen to transient snackbar messages
+    LaunchedEffect(uiState.snackbarMessage) {
+        val msg = uiState.snackbarMessage
+        val action = uiState.snackbarActionLabel
+        if (msg != null) {
+            val result = snackbarHostState.showSnackbar(
+                message = msg,
+                actionLabel = action,
+                duration = if (action != null) SnackbarDuration.Short else SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.undo()
+            }
+            viewModel.clearSnackbar()
+        }
+    }
+
+    // Profile Screen Navigation
+    if (uiState.isProfileOpen) {
+        ProfileScreen(
+            uiState = uiState,
+            onBack = { viewModel.closeProfile() },
+            onUpdateName = { viewModel.setUserName(it) },
+            onThemeChange = { viewModel.setThemeMode(it) },
+            onOpenManageCategories = { viewModel.openManageCategories() }
+        )
+
+        // Manage Categories Modal Sheet (accessible from Profile)
+        if (uiState.isManageCategoriesOpen) {
+            ManageCategoriesSheet(
+                sheetState = manageCatsSheetState,
+                categories = uiState.categories,
+                onDismiss = { viewModel.closeManageCategories() },
+                onAddCategory = { name, color, icon ->
+                    viewModel.addCustomCategory(name, color, icon)
+                },
+                onUpdateCategory = { cat, name, color, icon ->
+                    viewModel.updateCustomCategory(cat, name, color, icon)
+                },
+                onDeleteCategory = { cat ->
+                    viewModel.deleteCustomCategory(cat)
+                },
+                onCheckUsage = { name, callback ->
+                    viewModel.checkCategoryUsage(name, callback)
+                }
+            )
+        }
+        return
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -70,6 +137,33 @@ fun TaskScreen(
                     )
                 },
                 actions = {
+                    // Undo Button
+                    IconButton(
+                        onClick = { viewModel.undo() },
+                        enabled = uiState.canUndo
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Undo,
+                            contentDescription = "Undo",
+                            tint = if (uiState.canUndo) MaterialTheme.colorScheme.onSurface
+                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                        )
+                    }
+
+                    // Redo Button
+                    IconButton(
+                        onClick = { viewModel.redo() },
+                        enabled = uiState.canRedo
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Redo,
+                            contentDescription = "Redo",
+                            tint = if (uiState.canRedo) MaterialTheme.colorScheme.onSurface
+                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                        )
+                    }
+
+                    // Search Button
                     IconButton(onClick = { viewModel.toggleSearch(!uiState.isSearchOpen) }) {
                         Icon(
                             imageVector = if (uiState.isSearchOpen) Icons.Default.Close else Icons.Default.Search,
@@ -77,6 +171,27 @@ fun TaskScreen(
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
+
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    // Profile Avatar Entry Point
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .clickable { viewModel.openProfile() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = uiState.userName.firstOrNull()?.uppercase() ?: "P",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
@@ -96,6 +211,9 @@ fun TaskScreen(
                     modifier = Modifier.size(28.dp)
                 )
             }
+        },
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState)
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
@@ -159,6 +277,7 @@ fun TaskScreen(
 
                 FilterBar(
                     currentFilter = uiState.currentFilter,
+                    categories = uiState.categories,
                     selectedCategory = uiState.selectedCategory,
                     onFilterChange = { viewModel.setFilter(it) },
                     onCategoryChange = { viewModel.setCategory(it) }
@@ -204,6 +323,7 @@ fun TaskScreen(
                     ) { task ->
                         TaskItem(
                             task = task,
+                            categories = uiState.categories,
                             onToggleComplete = { viewModel.toggleTaskCompletion(task) },
                             onEdit = { viewModel.openEditTask(task) },
                             onDelete = { viewModel.deleteTask(task) }
@@ -221,11 +341,33 @@ fun TaskScreen(
         // Add/Edit Bottom Sheet
         if (uiState.isAddEditSheetOpen) {
             AddEditTaskSheet(
-                sheetState = sheetState,
+                sheetState = addEditSheetState,
                 editingTask = uiState.editingTask,
+                categories = uiState.categories,
                 onDismiss = { viewModel.dismissAddEditSheet() },
                 onSave = { title, description, category, priority, dueDate ->
                     viewModel.saveTask(title, description, category, priority, dueDate)
+                }
+            )
+        }
+
+        // Manage Categories Modal Sheet
+        if (uiState.isManageCategoriesOpen) {
+            ManageCategoriesSheet(
+                sheetState = manageCatsSheetState,
+                categories = uiState.categories,
+                onDismiss = { viewModel.closeManageCategories() },
+                onAddCategory = { name, color, icon ->
+                    viewModel.addCustomCategory(name, color, icon)
+                },
+                onUpdateCategory = { cat, name, color, icon ->
+                    viewModel.updateCustomCategory(cat, name, color, icon)
+                },
+                onDeleteCategory = { cat ->
+                    viewModel.deleteCustomCategory(cat)
+                },
+                onCheckUsage = { name, callback ->
+                    viewModel.checkCategoryUsage(name, callback)
                 }
             )
         }
