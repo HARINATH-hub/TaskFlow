@@ -28,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,6 +39,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.taskflow.data.local.TaskEntity
 import com.example.taskflow.model.TaskCategory
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun TaskItem(
@@ -49,6 +53,16 @@ fun TaskItem(
     modifier: Modifier = Modifier
 ) {
     val categoryObj = TaskCategory.findByName(categories, task.category)
+    val taskNum = if (task.taskNumber > 0) task.taskNumber else task.id.toInt()
+
+    val formattedCreatedDate = remember(task.createdAt) {
+        if (task.createdAt > 0) {
+            val sdf = SimpleDateFormat("dd MMM yyyy • h:mm a", Locale.getDefault())
+            sdf.format(Date(task.createdAt))
+        } else {
+            "Date unavailable"
+        }
+    }
 
     val cardBackground by animateColorAsState(
         targetValue = if (task.isCompleted) {
@@ -93,20 +107,37 @@ fun TaskItem(
                     .weight(1f)
                     .padding(top = 2.dp)
             ) {
-                // Title
-                Text(
-                    text = task.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = if (task.isCompleted) FontWeight.Normal else FontWeight.SemiBold,
-                    textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
-                    color = if (task.isCompleted) {
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                // Task Number & Title
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "#$taskNum",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (task.isCompleted) {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = task.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = if (task.isCompleted) FontWeight.Normal else FontWeight.SemiBold,
+                        textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
+                        color = if (task.isCompleted) {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
 
                 // Description if present
                 if (task.description.isNotBlank()) {
@@ -174,6 +205,27 @@ fun TaskItem(
                             color = task.priority.color
                         )
                     }
+                }
+
+                // Created Date and Time
+                Spacer(modifier = Modifier.height(8.dp))
+                Column {
+                    Text(
+                        text = "Created:",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                            alpha = if (task.isCompleted) 0.4f else 0.6f
+                        )
+                    )
+                    Text(
+                        text = formattedCreatedDate,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                            alpha = if (task.isCompleted) 0.5f else 0.85f
+                        )
+                    )
                 }
             }
 

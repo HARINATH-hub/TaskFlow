@@ -21,19 +21,25 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.SettingsBrightness
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,6 +52,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -62,8 +69,23 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.PhotoLibrary
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
 import com.example.taskflow.data.local.AppThemeMode
 import com.example.taskflow.ui.TaskUiState
+import java.io.File
+import java.io.FileOutputStream
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -73,9 +95,45 @@ fun ProfileScreen(
     onUpdateName: (String) -> Unit,
     onThemeChange: (AppThemeMode) -> Unit,
     onOpenManageCategories: () -> Unit,
+    onSignOut: () -> Unit,
+    onUpdatePhoto: (String?) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var showEditNameDialog by remember { mutableStateOf(false) }
+    var showSignOutDialog by remember { mutableStateOf(false) }
+    var showPhotoPickerSheet by remember { mutableStateOf(false) }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            val path = saveAvatarFromUri(context, uri, uiState.currentUid)
+            if (path != null) onUpdatePhoto(path)
+        }
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap: Bitmap? ->
+        if (bitmap != null) {
+            val path = saveAvatarBitmap(context, bitmap, uiState.currentUid)
+            onUpdatePhoto(path)
+        }
+    }
+
+    val avatarBitmap = remember(uiState.profilePhotoPath) {
+        uiState.profilePhotoPath?.let { path ->
+            try {
+                val file = File(path)
+                if (file.exists()) {
+                    BitmapFactory.decodeFile(file.absolutePath)
+                } else null
+            } catch (_: Exception) {
+                null
+            }
+        }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -127,24 +185,55 @@ fun ProfileScreen(
                             .padding(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Avatar Circle
-                        Box(
-                            modifier = Modifier
-                                .size(72.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary)
-                                .clickable { showEditNameDialog = true },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = uiState.userName.firstOrNull()?.uppercase() ?: "P",
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                fontSize = 32.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                        // Avatar Circle with Camera badge
+                        Box(contentAlignment = Alignment.BottomEnd) {
+                            Box(
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary)
+                                    .clickable { showPhotoPickerSheet = true },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (avatarBitmap != null) {
+                                    Image(
+                                        bitmap = avatarBitmap.asImageBitmap(),
+                                        contentDescription = "Profile Photo",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    Text(
+                                        text = uiState.userName.firstOrNull()?.uppercase() ?: "P",
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                        fontSize = 32.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
+                            // Camera Edit Badge
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .clickable { showPhotoPickerSheet = true }
+                                    .padding(2.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CameraAlt,
+                                    contentDescription = "Change photo",
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
                         }
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
                         // User Name with Edit Icon
                         Row(
@@ -223,7 +312,129 @@ fun ProfileScreen(
             }
 
             // ----------------------------------------------------
-            // 2. Productivity Rating Card
+            // 2. Account & Cloud Synchronization Card
+            // ----------------------------------------------------
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(18.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(42.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primaryContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = if (uiState.authProvider == "google") Icons.Default.Email else Icons.Default.Phone,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = "Cloud Account",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    val accountDetail = when {
+                                        !uiState.userEmail.isNullOrBlank() -> uiState.userEmail
+                                        !uiState.userPhone.isNullOrBlank() -> uiState.userPhone
+                                        else -> "Authenticated User"
+                                    }
+                                    Text(
+                                        text = accountDetail ?: "Connected",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            // Cloud Sync Status Pill
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (uiState.isSyncing) MaterialTheme.colorScheme.tertiaryContainer else Color(0xFFE8F5E9)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = if (uiState.isSyncing) Icons.Default.Sync else Icons.Default.CloudDone,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = if (uiState.isSyncing) MaterialTheme.colorScheme.tertiary else Color(0xFF2E7D32)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = if (uiState.isSyncing) "Syncing..." else "Synced",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (uiState.isSyncing) MaterialTheme.colorScheme.tertiary else Color(0xFF2E7D32)
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Provider tag & Sign Out Button
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Provider: ${uiState.authProvider.replaceFirstChar { it.uppercase() }}",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            OutlinedButton(
+                                onClick = { showSignOutDialog = true },
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Logout,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Sign Out",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ----------------------------------------------------
+            // 3. Productivity Rating Card
             // ----------------------------------------------------
             item {
                 val rating = uiState.productivityRating
@@ -617,6 +828,190 @@ fun ProfileScreen(
                 }
             }
         )
+    }
+
+    // Sign Out Confirmation Dialog
+    if (showSignOutDialog) {
+        AlertDialog(
+            onDismissRequest = { showSignOutDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Logout,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
+            title = {
+                Text(
+                    text = "Sign Out from TaskFlow?",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "Your tasks, streak, XP, and categories are securely synced to your cloud account. Signing out will clear the local active session.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showSignOutDialog = false
+                        onSignOut()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Sign Out")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showSignOutDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Photo Picker Options Dialog
+    if (showPhotoPickerSheet) {
+        AlertDialog(
+            onDismissRequest = { showPhotoPickerSheet = false },
+            title = {
+                Text(text = "Profile Photo", fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Choose how you'd like to update your profile photo:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                showPhotoPickerSheet = false
+                                galleryLauncher.launch("image/*")
+                            }
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PhotoLibrary,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "Choose from Gallery",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                showPhotoPickerSheet = false
+                                cameraLauncher.launch(null)
+                            }
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CameraAlt,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "Take Photo with Camera",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    if (uiState.profilePhotoPath != null) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable {
+                                    showPhotoPickerSheet = false
+                                    onUpdatePhoto(null)
+                                }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Remove Current Photo",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                OutlinedButton(onClick = { showPhotoPickerSheet = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+}
+
+private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
+    val height = options.outHeight
+    val width = options.outWidth
+    var inSampleSize = 1
+    if (height > reqHeight || width > reqWidth) {
+        val halfHeight = height / 2
+        val halfWidth = width / 2
+        while ((halfHeight / inSampleSize) >= reqHeight && (halfWidth / inSampleSize) >= reqWidth) {
+            inSampleSize *= 2
+        }
+    }
+    return inSampleSize
+}
+
+private fun saveAvatarBitmap(context: Context, bitmap: Bitmap, uid: String?): String {
+    val dir = File(context.filesDir, "avatars").apply { mkdirs() }
+    val file = File(dir, "avatar_${uid ?: "local"}.jpg")
+    FileOutputStream(file).use { out ->
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
+    }
+    return file.absolutePath
+}
+
+private fun saveAvatarFromUri(context: Context, uri: Uri, uid: String?): String? {
+    return try {
+        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        context.contentResolver.openInputStream(uri)?.use { stream ->
+            BitmapFactory.decodeStream(stream, null, options)
+        }
+        val sampleSize = calculateInSampleSize(options, 512, 512)
+        val decodeOptions = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+        val bitmap = context.contentResolver.openInputStream(uri)?.use { stream ->
+            BitmapFactory.decodeStream(stream, null, decodeOptions)
+        } ?: return null
+        saveAvatarBitmap(context, bitmap, uid)
+    } catch (e: Exception) {
+        null
     }
 }
 

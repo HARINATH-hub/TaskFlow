@@ -108,4 +108,37 @@ class TaskRepository(
             dbHelper.getTaskCountForCategory(categoryName)
         }
     }
+
+    suspend fun replaceTasks(tasks: List<TaskEntity>) {
+        withContext(ioDispatcher) {
+            dbHelper.replaceTasks(tasks)
+            refresh()
+        }
+    }
+
+    suspend fun replaceCustomCategories(categories: List<TaskCategory>) {
+        withContext(ioDispatcher) {
+            dbHelper.replaceCustomCategories(categories)
+            refreshCategories()
+        }
+    }
+
+    suspend fun clearLocalData() {
+        withContext(ioDispatcher) {
+            dbHelper.clearAllTasks()
+            refresh()
+        }
+    }
+
+    suspend fun getAllLocalTasksRaw(): List<TaskEntity> {
+        return withContext(ioDispatcher) {
+            dbHelper.getAllTasks()
+        }
+    }
+
+    suspend fun getAllLocalCategoriesRaw(): List<TaskCategory> {
+        return withContext(ioDispatcher) {
+            dbHelper.getAllCategories()
+        }
+    }
 }

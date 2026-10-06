@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import com.example.taskflow.data.local.TaskEntity
 import com.example.taskflow.model.Priority
 import com.example.taskflow.model.TaskCategory
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,6 +58,8 @@ fun AddEditTaskSheet(
     }
     var selectedPriority by remember(editingTask) { mutableStateOf(editingTask?.priority ?: Priority.MEDIUM) }
     var titleError by remember { mutableStateOf(false) }
+    var isSubmitting by remember { mutableStateOf(false) }
+    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -218,23 +221,39 @@ fun AddEditTaskSheet(
 
                 Button(
                     onClick = {
+                        if (isSubmitting) return@Button
                         if (title.isBlank()) {
                             titleError = true
                         } else {
-                            onSave(
-                                title.trim(),
-                                description.trim(),
-                                selectedCategory,
-                                selectedPriority,
-                                editingTask?.dueDate
-                            )
+                            isSubmitting = true
+                            coroutineScope.launch {
+                                try {
+                                    sheetState.hide()
+                                } catch (_: Exception) {}
+                                onSave(
+                                    title.trim(),
+                                    description.trim(),
+                                    selectedCategory,
+                                    selectedPriority,
+                                    editingTask?.dueDate
+                                )
+                            }
                         }
                     },
+                    enabled = !isSubmitting,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
-                    Text(if (editingTask != null) "Update" else "Save Task")
+                    if (isSubmitting) {
+                        androidx.compose.material3.CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(if (editingTask != null) "Update" else "Save Task")
+                    }
                 }
             }
 

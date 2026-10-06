@@ -11,10 +11,11 @@ class TaskDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
 
     companion object {
         private const val DATABASE_NAME = "taskflow.db"
-        private const val DATABASE_VERSION = 2
+        private const val DATABASE_VERSION = 3
 
         const val TABLE_TASKS = "tasks"
         const val COLUMN_ID = "id"
+        const val COLUMN_TASK_NUMBER = "task_number"
         const val COLUMN_TITLE = "title"
         const val COLUMN_DESCRIPTION = "description"
         const val COLUMN_CATEGORY = "category"
@@ -38,6 +39,7 @@ class TaskDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
         val createTasksTable = """
             CREATE TABLE $TABLE_TASKS (
                 $COLUMN_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COLUMN_TASK_NUMBER INTEGER NOT NULL DEFAULT 0,
                 $COLUMN_TITLE TEXT NOT NULL,
                 $COLUMN_DESCRIPTION TEXT,
                 $COLUMN_CATEGORY TEXT NOT NULL,
@@ -68,6 +70,14 @@ class TaskDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
             }
             createCategoriesTable(db)
             seedDefaultCategories(db)
+        }
+        if (oldVersion < 3) {
+            // Safe upgrade from version 2 to 3: Add persistent task sequence number
+            try {
+                db.execSQL("ALTER TABLE $TABLE_TASKS ADD COLUMN $COLUMN_TASK_NUMBER INTEGER DEFAULT 0")
+            } catch (_: Exception) {
+                // Column might already exist
+            }
         }
     }
 
@@ -101,6 +111,7 @@ class TaskDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
     private fun seedInitialTasks(db: SQLiteDatabase) {
         val initialTasks = listOf(
             TaskEntity(
+                taskNumber = 1,
                 title = "Welcome to TaskFlow! 🎉",
                 description = "Swipe or tap to explore your new modern task manager.",
                 category = "WORK",
@@ -108,6 +119,7 @@ class TaskDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
                 isCompleted = false
             ),
             TaskEntity(
+                taskNumber = 2,
                 title = "Review project deliverables 📊",
                 description = "Check sprint goals and organize upcoming backlog items.",
                 category = "WORK",
@@ -115,6 +127,7 @@ class TaskDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
                 isCompleted = false
             ),
             TaskEntity(
+                taskNumber = 3,
                 title = "Grocery shopping 🛒",
                 description = "Milk, fresh fruits, vegetables, and whole wheat bread.",
                 category = "SHOPPING",
@@ -122,6 +135,7 @@ class TaskDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
                 isCompleted = false
             ),
             TaskEntity(
+                taskNumber = 4,
                 title = "Morning workout & 30 min run 🏃‍♂️",
                 description = "Completed stretching and 5km jog around the park.",
                 category = "HEALTH",
@@ -133,6 +147,7 @@ class TaskDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
 
         for (task in initialTasks) {
             val values = ContentValues().apply {
+                put(COLUMN_TASK_NUMBER, task.taskNumber)
                 put(COLUMN_TITLE, task.title)
                 put(COLUMN_DESCRIPTION, task.description)
                 put(COLUMN_CATEGORY, task.category)
@@ -150,6 +165,31 @@ class TaskDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
     // Tasks Operations
     // ----------------------------------------------------
 
+    fun getNextTaskNumber(database: SQLiteDatabase? = null): Int {
+        val db = database ?: readableDatabase
+        var maxNum = 0
+        try {
+            val cursor = db.rawQuery("SELECT MAX($COLUMN_TASK_NUMBER) FROM $TABLE_TASKS", null)
+            cursor.use {
+                if (it.moveToFirst() && !it.isNull(0)) {
+                    maxNum = it.getInt(0)
+                }
+            }
+        } catch (_: Exception) {}
+
+        if (maxNum == 0) {
+            try {
+                val idCursor = db.rawQuery("SELECT MAX($COLUMN_ID) FROM $TABLE_TASKS", null)
+                idCursor.use {
+                    if (it.moveToFirst() && !it.isNull(0)) {
+                        maxNum = it.getInt(0)
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+        return maxNum + 1
+    }
+
     fun getAllTasks(): List<TaskEntity> {
         val taskList = mutableListOf<TaskEntity>()
         val db = readableDatabase
@@ -166,6 +206,7 @@ class TaskDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
         cursor.use {
             if (it.moveToFirst()) {
                 val idIndex = it.getColumnIndexOrThrow(COLUMN_ID)
+                val taskNumberIndex = it.getColumnIndex(COLUMN_TASK_NUMBER)
                 val titleIndex = it.getColumnIndexOrThrow(COLUMN_TITLE)
                 val descIndex = it.getColumnIndexOrThrow(COLUMN_DESCRIPTION)
                 val categoryIndex = it.getColumnIndexOrThrow(COLUMN_CATEGORY)
@@ -177,6 +218,10 @@ class TaskDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
 
                 do {
                     val id = it.getLong(idIndex)
+                    val rawTaskNumber = if (taskNumberIndex != -1 && !it.isNull(taskNumberIndex)) {
+                        it.getInt(taskNumberIndex)
+                    } else 0
+                    val taskNumber = if (rawTaskNumber > 0) rawTaskNumber else id.toInt()
                     val title = it.getString(titleIndex)
                     val desc = it.getString(descIndex) ?: ""
                     val catStr = it.getString(categoryIndex) ?: "WORK"
@@ -192,6 +237,7 @@ class TaskDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
                     taskList.add(
                         TaskEntity(
                             id = id,
+                            taskNumber = taskNumber,
                             title = title,
                             description = desc,
                             category = catStr,
@@ -210,7 +256,9 @@ class TaskDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
 
     fun insertTask(task: TaskEntity): Long {
         val db = writableDatabase
+        val taskNum = if (task.taskNumber > 0) task.taskNumber else getNextTaskNumber(db)
         val values = ContentValues().apply {
+            put(COLUMN_TASK_NUMBER, taskNum)
             put(COLUMN_TITLE, task.title)
             put(COLUMN_DESCRIPTION, task.description)
             put(COLUMN_CATEGORY, task.category)
@@ -224,12 +272,14 @@ class TaskDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
     }
 
     /**
-     * Inserts or restores a task preserving its original ID (crucial for Undo & Redo)
+     * Inserts or restores a task preserving its original ID and sequence number (crucial for Undo & Redo)
      */
     fun restoreTask(task: TaskEntity): Long {
         val db = writableDatabase
+        val taskNum = if (task.taskNumber > 0) task.taskNumber else task.id.toInt()
         val values = ContentValues().apply {
             put(COLUMN_ID, task.id)
+            put(COLUMN_TASK_NUMBER, taskNum)
             put(COLUMN_TITLE, task.title)
             put(COLUMN_DESCRIPTION, task.description)
             put(COLUMN_CATEGORY, task.category)
@@ -245,6 +295,9 @@ class TaskDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
     fun updateTask(task: TaskEntity): Int {
         val db = writableDatabase
         val values = ContentValues().apply {
+            if (task.taskNumber > 0) {
+                put(COLUMN_TASK_NUMBER, task.taskNumber)
+            }
             put(COLUMN_TITLE, task.title)
             put(COLUMN_DESCRIPTION, task.description)
             put(COLUMN_CATEGORY, task.category)
@@ -385,5 +438,70 @@ class TaskDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
         } finally {
             db.endTransaction()
         }
+    }
+
+    /**
+     * Atomically replaces local SQLite tasks with a remote user's task list (used when loading account data)
+     */
+    fun replaceTasks(tasks: List<TaskEntity>) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            db.delete(TABLE_TASKS, null, null)
+            for (task in tasks) {
+                val values = ContentValues().apply {
+                    put(COLUMN_ID, task.id)
+                    put(COLUMN_TASK_NUMBER, if (task.taskNumber > 0) task.taskNumber else task.id.toInt())
+                    put(COLUMN_TITLE, task.title)
+                    put(COLUMN_DESCRIPTION, task.description)
+                    put(COLUMN_CATEGORY, task.category)
+                    put(COLUMN_PRIORITY, task.priority.name)
+                    put(COLUMN_DUE_DATE, task.dueDate)
+                    put(COLUMN_IS_COMPLETED, if (task.isCompleted) 1 else 0)
+                    put(COLUMN_CREATED_AT, task.createdAt)
+                    put(COLUMN_COMPLETED_AT, task.completedAt ?: 0)
+                }
+                db.insertWithOnConflict(TABLE_TASKS, null, values, SQLiteDatabase.CONFLICT_REPLACE)
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    /**
+     * Replaces custom categories with the user's synced categories while preserving defaults
+     */
+    fun replaceCustomCategories(customCategories: List<TaskCategory>) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            // Delete only non-default categories
+            db.delete(TABLE_CATEGORIES, "$COLUMN_CAT_IS_DEFAULT = 0", null)
+            for (cat in customCategories) {
+                if (!cat.isDefault) {
+                    val values = ContentValues().apply {
+                        put(COLUMN_CAT_ID, cat.id)
+                        put(COLUMN_CAT_NAME, cat.name)
+                        put(COLUMN_CAT_DISPLAY_NAME, cat.displayName)
+                        put(COLUMN_CAT_COLOR, cat.colorValue)
+                        put(COLUMN_CAT_ICON, cat.iconName)
+                        put(COLUMN_CAT_IS_DEFAULT, 0)
+                    }
+                    db.insertWithOnConflict(TABLE_CATEGORIES, null, values, SQLiteDatabase.CONFLICT_REPLACE)
+                }
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    /**
+     * Clears all local tasks on sign-out so a subsequent user cannot view another user's tasks
+     */
+    fun clearAllTasks() {
+        val db = writableDatabase
+        db.delete(TABLE_TASKS, null, null)
     }
 }

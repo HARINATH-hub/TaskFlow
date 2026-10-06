@@ -24,4 +24,16 @@ sealed interface TaskAction {
             "Uncomplete \"${taskBeforeToggle.title}\""
         }
     }
+
+    data class AddCategory(val category: TaskCategory) : TaskAction {
+        override val description: String = "Create category \"${category.displayName}\""
+    }
+
+    data class EditCategory(val oldCategory: TaskCategory, val newCategory: TaskCategory) : TaskAction {
+        override val description: String = "Edit category \"${newCategory.displayName}\""
+    }
+
+    data class DeleteCategory(val category: TaskCategory) : TaskAction {
+        override val description: String = "Delete category \"${category.displayName}\""
+    }
 }

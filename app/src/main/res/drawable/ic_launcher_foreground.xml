@@ -4,80 +4,71 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Card Drop Shadow -->
+    <!-- Paper Sheet Drop Shadow -->
     <path
-        android:pathData="M32,30 H76 A6,6 0 0 1 82,36 V76 A6,6 0 0 1 76,82 H32 A6,6 0 0 1 26,76 V36 A6,6 0 0 1 32,30 Z"
-        android:fillColor="#33000000" />
+        android:pathData="M34,29 H62 L74,41 V77 A5,5 0 0 1 69,82 H33 A5,5 0 0 1 28,77 V35 A5,5 0 0 1 33,29 Z"
+        android:fillColor="#28000000" />
 
-    <!-- Main White Productivity Card -->
+    <!-- Clean White Sheet of Paper (Task Document) -->
     <path
-        android:pathData="M30,28 H74 A6,6 0 0 1 80,34 V74 A6,6 0 0 1 74,80 H30 A6,6 0 0 1 24,74 V34 A6,6 0 0 1 30,28 Z"
+        android:pathData="M32,27 H60 L72,39 V75 A5,5 0 0 1 67,80 H31 A5,5 0 0 1 26,75 V33 A5,5 0 0 1 31,27 Z"
         android:fillColor="#FFFFFFFF" />
 
-    <!-- Card Top Accent Header Bar -->
+    <!-- Elegant Folded Dog-Ear Corner at Top Right of Paper -->
     <path
-        android:pathData="M30,28 H74 A6,6 0 0 1 80,34 V38 H24 V34 A6,6 0 0 1 30,28 Z"
-        android:fillColor="#6366F1" />
+        android:pathData="M60,27 V39 H72 Z"
+        android:fillColor="#CBD5E1" />
 
-    <!-- Task Item 1: Checklist bullet + line -->
+    <!-- Paper Task Guideline 1 -->
     <path
-        android:pathData="M32,45 A3,3 0 1 1 32,45.01"
-        android:strokeWidth="2.5"
-        android:strokeColor="#818CF8"
-        android:strokeLineCap="round"
-        android:fillColor="#00000000" />
-    <path
-        android:pathData="M38,45 H68"
-        android:strokeWidth="3"
-        android:strokeColor="#E0E7FF"
+        android:pathData="M34,44 H52"
+        android:strokeWidth="2.8"
+        android:strokeColor="#E2E8F0"
         android:strokeLineCap="round" />
 
-    <!-- Task Item 2: Checklist bullet + line -->
+    <!-- Paper Task Guideline 2 -->
     <path
-        android:pathData="M32,54 A3,3 0 1 1 32,54.01"
-        android:strokeWidth="2.5"
-        android:strokeColor="#818CF8"
-        android:strokeLineCap="round"
-        android:fillColor="#00000000" />
-    <path
-        android:pathData="M38,54 H60"
-        android:strokeWidth="3"
-        android:strokeColor="#E0E7FF"
+        android:pathData="M34,52 H46"
+        android:strokeWidth="2.8"
+        android:strokeColor="#E2E8F0"
         android:strokeLineCap="round" />
 
-    <!-- Task Item 3: Line -->
+    <!-- Vibrant Green Completion Checkmark / Tick -->
     <path
-        android:pathData="M38,63 H52"
-        android:strokeWidth="3"
-        android:strokeColor="#EEF2F6"
-        android:strokeLineCap="round" />
-
-    <!-- Dynamic Flow Checkmark Badge (Circular Badge) -->
-    <path
-        android:pathData="M68,64 A13,13 0 1 1 68,63.99"
-        android:fillColor="#10B981" />
-
-    <!-- Checkmark Badge Shadow Edge -->
-    <path
-        android:pathData="M68,64 A13,13 0 1 1 68,63.99"
-        android:strokeWidth="2"
-        android:strokeColor="#FFFFFF"
-        android:fillColor="#00000000" />
-
-    <!-- Bold White Checkmark in Badge -->
-    <path
-        android:pathData="M62,64 L66,68 L74,59"
-        android:strokeWidth="3.2"
-        android:strokeColor="#FFFFFF"
+        android:pathData="M35,63 L46,73 L67,51"
+        android:strokeWidth="4.6"
+        android:strokeColor="#10B981"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:fillColor="#00000000" />
 
-    <!-- Forward Flow Swoosh accent (Productivity Energy) -->
+    <!-- Integrated Modern Stylus / Pen Tip (Nib) finishing the tick -->
     <path
-        android:pathData="M76,46 C80,48 83,52 82,57"
-        android:strokeWidth="2.2"
-        android:strokeColor="#34D399"
-        android:strokeLineCap="round"
-        android:fillColor="#00000000" />
+        android:pathData="M67,51 L71,46 L74,49 Z"
+        android:fillColor="#F59E0B" />
+
+    <!-- Integrated Pen Body (Indigo barrel) -->
+    <path
+        android:pathData="M71,46 L82,35 L86,39 L74,49 Z"
+        android:fillColor="#4F46E5" />
+
+    <!-- Pen Body Highlight Shine -->
+    <path
+        android:pathData="M74,42 L82,34"
+        android:strokeWidth="1.2"
+        android:strokeColor="#A5B4FC"
+        android:strokeLineCap="round" />
+
+    <!-- Pen Chrome Accent Ring -->
+    <path
+        android:pathData="M81.5,35.5 L85.5,39.5"
+        android:strokeWidth="1.6"
+        android:strokeColor="#E2E8F0"
+        android:strokeLineCap="square" />
+
+    <!-- Pen Top Cap -->
+    <path
+        android:pathData="M82,35 L85,32 L89,36 L86,39 Z"
+        android:fillColor="#1E1B4B" />
+
 </vector>

@@ -2,6 +2,7 @@ package com.example.taskflow.ui
 
 import com.example.taskflow.data.local.AppThemeMode
 import com.example.taskflow.data.local.TaskEntity
+import com.example.taskflow.data.remote.AuthState
 import com.example.taskflow.model.Achievement
 import com.example.taskflow.model.Priority
 import com.example.taskflow.model.ProductivityRating
@@ -28,13 +29,33 @@ data class TaskUiState(
     val isManageCategoriesOpen: Boolean = false,
     val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
     val userName: String = "Productivity Pro",
+    val userEmail: String? = null,
+    val userPhone: String? = null,
+    val authProvider: String = "local",
+    val profilePhotoPath: String? = null,
     val totalXp: Int = 0,
     val streakDays: Int = 0,
     val canUndo: Boolean = false,
     val canRedo: Boolean = false,
     val snackbarMessage: String? = null,
-    val snackbarActionLabel: String? = null
+    val snackbarActionLabel: String? = null,
+    // Authentication & Cloud Sync
+    val authState: AuthState = AuthState.Loading,
+    val isSyncing: Boolean = false,
+    val isPhoneAuthLoading: Boolean = false,
+    val isGoogleAuthLoading: Boolean = false,
+    val isPhoneOtpSent: Boolean = false,
+    val phoneAuthVerificationId: String? = null,
+    val phoneAuthError: String? = null,
+    val isMigrationDialogOpen: Boolean = false,
+    val unmigratedTasksCount: Int = 0
 ) {
+    val isAuthenticated: Boolean
+        get() = authState is AuthState.Authenticated
+
+    val currentUid: String?
+        get() = (authState as? AuthState.Authenticated)?.user?.uid
+
     val totalCount: Int get() = rawTasks.size
     val completedCount: Int get() = rawTasks.count { it.isCompleted }
     val pendingCount: Int get() = totalCount - completedCount

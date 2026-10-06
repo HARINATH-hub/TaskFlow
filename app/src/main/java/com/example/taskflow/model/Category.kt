@@ -3,7 +3,7 @@ package com.example.taskflow.model
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Work
@@ -24,7 +24,7 @@ enum class Category(val displayName: String, val color: Color) {
         SHOPPING -> Icons.Default.ShoppingCart
         HEALTH -> Icons.Default.Favorite
         STUDY -> Icons.Default.Book
-        OTHER -> Icons.Default.List
+        OTHER -> Icons.AutoMirrored.Filled.List
     }
 
     companion object {

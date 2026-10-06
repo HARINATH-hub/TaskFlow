@@ -55,12 +55,22 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.Image
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.style.TextAlign
+import com.example.taskflow.R
+import com.example.taskflow.data.remote.AuthState
 import com.example.taskflow.ui.components.AddEditTaskSheet
 import com.example.taskflow.ui.components.EmptyState
 import com.example.taskflow.ui.components.FilterBar
 import com.example.taskflow.ui.components.ManageCategoriesSheet
 import com.example.taskflow.ui.components.StatsCard
 import com.example.taskflow.ui.components.TaskItem
+import com.example.taskflow.ui.screens.AuthScreen
 import com.example.taskflow.ui.screens.ProfileScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -91,6 +101,58 @@ fun TaskScreen(
         }
     }
 
+    // Authentication State Gate
+    if (uiState.authState is AuthState.Loading) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_launcher_foreground),
+                    contentDescription = "TaskFlow",
+                    modifier = Modifier.size(96.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                CircularProgressIndicator(
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(36.dp)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Connecting to TaskFlow Cloud...",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        return
+    }
+
+    if (!uiState.isAuthenticated) {
+        AuthScreen(
+            uiState = uiState,
+            onGoogleSignInSuccess = { idToken ->
+                viewModel.signInWithGoogle(idToken)
+            },
+            onSendPhoneOtp = { phone, activity ->
+                viewModel.sendPhoneOtp(phone, activity)
+            },
+            onVerifyPhoneOtp = { otp ->
+                viewModel.verifyPhoneOtp(otp)
+            },
+            onResetPhoneAuth = {
+                viewModel.resetPhoneAuthState()
+            },
+            onSetGoogleLoading = { loading ->
+                viewModel.setGoogleAuthLoading(loading)
+            }
+        )
+        return
+    }
+
     // Profile Screen Navigation
     if (uiState.isProfileOpen) {
         ProfileScreen(
@@ -98,7 +160,9 @@ fun TaskScreen(
             onBack = { viewModel.closeProfile() },
             onUpdateName = { viewModel.setUserName(it) },
             onThemeChange = { viewModel.setThemeMode(it) },
-            onOpenManageCategories = { viewModel.openManageCategories() }
+            onOpenManageCategories = { viewModel.openManageCategories() },
+            onSignOut = { viewModel.signOut() },
+            onUpdatePhoto = { viewModel.updateProfilePhoto(it) }
         )
 
         // Manage Categories Modal Sheet (accessible from Profile)
@@ -175,6 +239,15 @@ fun TaskScreen(
                     Spacer(modifier = Modifier.width(4.dp))
 
                     // Profile Avatar Entry Point
+                    val topBarAvatarBitmap = remember(uiState.profilePhotoPath) {
+                        uiState.profilePhotoPath?.let { path ->
+                            try {
+                                val file = java.io.File(path)
+                                if (file.exists()) android.graphics.BitmapFactory.decodeFile(file.absolutePath) else null
+                            } catch (_: Exception) { null }
+                        }
+                    }
+
                     Box(
                         modifier = Modifier
                             .size(36.dp)
@@ -183,12 +256,21 @@ fun TaskScreen(
                             .clickable { viewModel.openProfile() },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = uiState.userName.firstOrNull()?.uppercase() ?: "P",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        if (topBarAvatarBitmap != null) {
+                            Image(
+                                bitmap = topBarAvatarBitmap.asImageBitmap(),
+                                contentDescription = "Profile",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Text(
+                                text = uiState.userName.firstOrNull()?.uppercase() ?: "P",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.width(12.dp))
@@ -311,6 +393,23 @@ fun TaskScreen(
                     onAddTaskClick = { viewModel.openAddTask() },
                     modifier = Modifier.weight(1f)
                 )
+
+                // Motivational quote on empty state
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 84.dp, top = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "“Small steps. Clear goals. Real progress.”",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium,
+                        fontStyle = FontStyle.Italic,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                        textAlign = TextAlign.Center
+                    )
+                }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -330,9 +429,28 @@ fun TaskScreen(
                         )
                     }
 
+                    // Motivational Quote item
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 18.dp, bottom = 8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "“Small steps. Clear goals. Real progress.”",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Medium,
+                                fontStyle = FontStyle.Italic,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+
                     // Spacer at bottom so FAB doesn't obscure the last task
                     item {
-                        Spacer(modifier = Modifier.height(80.dp))
+                        Spacer(modifier = Modifier.height(84.dp))
                     }
                 }
             }

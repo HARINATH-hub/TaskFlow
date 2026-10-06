@@ -126,18 +126,93 @@ TaskFlow/
 
 ---
 
+### 9. 🔐 Firebase Authentication (Google & Phone OTP)
+- **Google Sign-In**: "Continue with Google" one-tap sign-in directly authenticating with Firebase Auth.
+- **Phone SMS OTP Authentication**: "Continue with Phone" flow with:
+  - Phone number input with country code validation
+  - SMS 6-digit verification code delivery
+  - Resend countdown timer (60 seconds)
+  - Clear error feedback for invalid numbers, invalid/expired OTPs, and network issues
+  - OTP codes are never exposed in application logs
+- **Session Continuity**: Automatic login bypass if already authenticated.
+- **Clean Logout**: Dedicated "Sign Out" button in Profile with confirmation dialog, safely clearing local active session cache without touching remote cloud data.
+
+### 10. ☁️ Real-time Cloud Firestore Synchronization & Safe Migration
+- **Per-User Cloud Isolation**: Each user's data is stored under `/users/{uid}`, with tasks under `/users/{uid}/tasks` and custom categories under `/users/{uid}/categories`.
+- **Real-Time Snapshot Sync**: Changes made on one device are immediately reflected in real-time.
+- **Safe First-Login Migration**:
+  - Automatically checks if local data has been migrated for the authenticated account (`migrated_for_{uid}`).
+  - Non-destructively uploads all pre-existing SQLite tasks, custom categories, streak, and XP to Firestore in an atomic batch.
+  - Zero duplicates and zero data loss.
+- **Multi-Account Switching**: When switching accounts, local database cache is safely swapped with the incoming user's cloud data.
+- **Offline Resilient**: Local SQLite database acts as a responsive local cache, keeping the app fast even without internet.
+
+---
+
+## 🔒 Cloud Firestore Security Rules
+
+The application includes `firestore.rules` enforcing strict per-user authorization:
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      match /tasks/{taskId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      match /categories/{categoryId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    match /{document=**} {
+      allow read, write: false;
+    }
+  }
+}
+```
+
+---
+
+## ⚙️ Firebase Console Configuration Guide
+
+To connect your own live Firebase project:
+
+1. **Create Firebase Project**:
+   - Go to [Firebase Console](https://console.firebase.google.com/) and create a project (e.g., `taskflow-prod`).
+2. **Add Android App**:
+   - Package name: `com.example.taskflow`
+   - Retrieve your debug SHA-1 signing certificate fingerprint:
+     ```cmd
+     keytool -list -v -keystore "%USERPROFILE%\.android\debug.keystore" -alias androiddebugkey -storepass android -keypass android
+     ```
+   - Paste the SHA-1 into your Android app settings in the Firebase Console.
+3. **Enable Authentication Providers**:
+   - In Firebase Console > **Authentication** > **Sign-in method**:
+     - Enable **Google**
+     - Enable **Phone** (Optional: Add test phone numbers like `+1 650-555-3434` with code `123456` for free emulator testing)
+4. **Create Firestore Database**:
+   - Go to **Cloud Firestore** > **Create database** > Select region and start in **Production mode**.
+   - Copy the rules from `firestore.rules` in this project into the **Rules** tab and click **Publish**.
+5. **Download `google-services.json`**:
+   - Download the file from Firebase Console and place it into `app/google-services.json`.
+
+---
+
 ## 🚀 How to Run and Test the App
 
 ### Option A: Open with Android Studio (Recommended)
 1. Open **Android Studio**.
-2. Select **File > Open...** (or click **Open** on the Welcome screen).
-3. Navigate to:
+2. Select **File > Open...** and choose:
    ```
    C:\Users\hihar\.gemini\antigravity\scratch\TaskFlow
    ```
-4. Click **OK**. Android Studio will sync Gradle automatically.
-5. Select an emulator or connected physical Android device.
-6. Click the green **Run (▶)** button (or press `Shift + F10`).
+3. Click **OK**. Android Studio will sync Gradle automatically.
+4. Select an emulator or connected physical Android device.
+5. Click the green **Run (▶)** button (or press `Shift + F10`).
 
 ### Option B: Build via Command Line
 Run the Gradle wrapper inside the project folder:
@@ -145,37 +220,37 @@ Run the Gradle wrapper inside the project folder:
 cd C:\Users\hihar\.gemini\antigravity\scratch\TaskFlow
 gradlew.bat assembleDebug
 ```
-The output APK is ready at:
+The output debug APK is located at:
 `app/build/outputs/apk/debug/app-debug.apk`
 
 ---
 
 ## 🧪 Testing the New Features on Your Device
 
-1. **Test Undo & Redo**:
-   - Complete a task by tapping the checkbox -> Notice the `+XP` snackbar and the Undo icon in the top app bar lighting up.
-   - Tap **Undo** (either in the top bar or on the snackbar) -> The task immediately returns to pending state and XP is reverted.
-   - Tap **Redo** in the top bar -> The task is completed again and XP is restored.
-   - Delete a task -> Tap **Undo** -> The task is restored with its exact original ID and details.
+1. **Test Authentication**:
+   - Open TaskFlow -> You will see the new **AuthScreen** with TaskFlow branding and value cards.
+   - Tap **Continue with Phone** -> Enter your phone number (or Firebase test phone number) -> Enter the 6-digit OTP code -> You are instantly authenticated and brought into TaskFlow!
+   - Tap **Continue with Google** -> Choose your Google Account -> Seamlessly authenticate into TaskFlow.
 
-2. **Test App Icon**:
-   - Return to your phone's home screen or app drawer.
-   - Observe the new **TaskFlow** icon featuring the modern checklist card with the emerald checkmark badge.
+2. **Test First-Login Data Migration**:
+   - Any tasks, categories, or XP previously in the app are automatically uploaded to your Cloud Firestore account.
+   - Verify on Firebase Console that `/users/{uid}/tasks` and `/users/{uid}` documents are populated.
 
-3. **Test Profile, Ratings & Gamification**:
-   - Tap the **Profile Avatar** in the top-right corner of the Home screen.
-   - Tap the user name or avatar to edit your display name.
-   - Check your **Productivity Rating** (e.g. `★★★★☆ 4.4 / 5.0`) and read the breakdown explaining how your completion rate, completed tasks, and streak days produce the rating.
-   - Scroll down to review your **Level** (with XP progress bar) and the **Milestones & Achievements** list.
+3. **Test Real-Time Cloud Sync & Offline Support**:
+   - Add, edit, complete, or delete a task.
+   - Notice the status badge in **Profile & Settings** showing `Cloud Synced ☁️`.
+   - The changes are immediately written to Cloud Firestore and cached locally in SQLite.
 
-4. **Test Category Management**:
-   - On the Profile screen, tap **Manage Categories**.
-   - Tap **Add Custom** -> Enter a name (e.g., "Fitness"), pick a color and icon, and tap **Add**.
-   - Return to the Home screen -> Notice your new category pill appears in the horizontal filter list!
-   - Tap `+` to create a task -> Your new category is available in the category selector.
-   - Return to Manage Categories and tap Delete on your custom category -> If tasks use it, observe the safe confirmation dialog reassigning them to "Other" without deleting any task.
+4. **Test Account Switching & Multi-User Isolation**:
+   - Go to **Profile & Settings** -> Observe your email/phone and provider badge.
+   - Tap **Sign Out** -> Confirm in the dialog.
+   - The local session is cleared and the login screen appears.
+   - Log in with a different user -> Only that second user's data is shown!
 
-5. **Test Theme Settings**:
-   - On the Profile screen, find **Theme Settings**.
-   - Switch between **Light Theme**, **Dark Theme**, and **System Default**.
-   - The entire app UI updates instantly and preserves your selection across app restarts.
+5. **Test Undo & Redo**:
+   - Complete a task -> Tap **Undo** -> The task reverts to pending state and XP adjusts in both SQLite and Firestore.
+   - Tap **Redo** -> The task completes again.
+
+6. **Test Theme & Custom Categories**:
+   - Switch themes in **Profile & Settings** -> Theme preference syncs to the cloud and persists across device reinstalls.
+   - Create custom categories -> User-created categories are synchronized with your account in Firestore.

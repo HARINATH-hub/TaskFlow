@@ -19,7 +19,12 @@ class MainActivity : ComponentActivity() {
         val app = application as TaskFlowApp
         val viewModel = ViewModelProvider(
             this,
-            TaskViewModel.Factory(app.repository, app.preferencesManager)
+            TaskViewModel.Factory(
+                app.repository,
+                app.preferencesManager,
+                app.authManager,
+                app.firestoreService
+            )
         )[TaskViewModel::class.java]
 
         setContent {

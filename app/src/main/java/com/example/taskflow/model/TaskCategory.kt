@@ -1,6 +1,7 @@
 package com.example.taskflow.model
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Favorite
@@ -8,7 +9,6 @@ import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.ShoppingCart
@@ -41,6 +41,17 @@ data class TaskCategory(
         "lightbulb" -> Icons.Default.Lightbulb
         "music" -> Icons.Default.MusicNote
         else -> Icons.AutoMirrored.Filled.List
+    }
+
+    fun toFirestoreMap(): Map<String, Any?> {
+        return mapOf(
+            "id" to id,
+            "name" to name,
+            "displayName" to displayName,
+            "colorValue" to colorValue,
+            "iconName" to iconName,
+            "isDefault" to isDefault
+        )
     }
 
     companion object {
@@ -82,6 +93,17 @@ data class TaskCategory(
             return categories.firstOrNull { it.name.equals(name, ignoreCase = true) }
                 ?: DEFAULT_CATEGORIES.firstOrNull { it.name.equals(name, ignoreCase = true) }
                 ?: OTHER
+        }
+
+        fun fromFirestoreMap(id: Long, data: Map<String, Any?>): TaskCategory {
+            return TaskCategory(
+                id = id,
+                name = data["name"] as? String ?: "CUSTOM",
+                displayName = data["displayName"] as? String ?: "Custom",
+                colorValue = (data["colorValue"] as? Number)?.toLong() ?: 0xFF6366F1,
+                iconName = data["iconName"] as? String ?: "star",
+                isDefault = data["isDefault"] as? Boolean ?: false
+            )
         }
     }
 }
